@@ -14,6 +14,12 @@ public:
     void set_points(const PoolVector<Vector2> &p_points);
     PoolVector<Vector2> get_points() const;
 
+    void set_points_forces(const PoolVector<Vector2> &p_forces);
+    PoolVector<Vector2> get_points_forces() const;
+
+    void set_point_force(int index, Vector2 force);
+    Vector2 get_point_force(int index) const;
+
     void set_color(Color color);
     Color get_color() const;
 
@@ -47,9 +53,11 @@ public:
     PoolVector<Vector2> _rendered_points;
     PoolVector<Vector2> _old_points;
     PoolVector<float> _rest_lengths;
+    PoolVector<Vector2> _point_forces; // Allows for scripts to sway the cables per segment.
     int _segments;  // Number of points inbetween the pinned points.
     float _width;
     float _restlength_scale;
+    float _force_damping;
     int _iterations;
     Color _color;
 

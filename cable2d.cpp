@@ -7,6 +7,7 @@ Cable2D::Cable2D() :
     _width = 2.0;
     _segments = 5;
     _restlength_scale = 1.0;
+    _force_damping = 0.98;
     _iterations = 10;
     _color = Color(0.0, 0.0, 0.0, 1.0);
     set_process_internal(true);
@@ -23,6 +24,31 @@ void Cable2D::set_points(const PoolVector<Vector2> &p_points) {
 
 PoolVector<Vector2> Cable2D::get_points() const {
     return _points;
+}
+
+void Cable2D::set_points_forces(const PoolVector<Vector2> &p_forces) {
+    _point_forces = p_forces;
+    if (_point_forces.size() != _points.size())
+        _point_forces.resize(_points.size());
+    update();
+}
+
+PoolVector<Vector2> Cable2D::get_points_forces() const {
+    return _point_forces;
+}
+
+void Cable2D::set_point_force(int index, Vector2 force) {
+    if (index > -1 && index < _point_forces.size()) {
+        _point_forces.set(index, force);
+        update();
+    }
+}
+
+Vector2 Cable2D::get_point_force(int index) const {
+    if (index > -1 && index < _point_forces.size()) {
+        return _point_forces[index];
+    }
+    return Vector2();
 }
 
 void Cable2D::set_color(Color color) {
@@ -89,6 +115,7 @@ void Cable2D::rebuild_points() {
     int pointcount = _segments * (_points.size() - 1);
 
     _rendered_points.resize(pointcount + 1);
+    _point_forces.resize(_points.size());
 
     if (pointcount == 0)
         return;
@@ -123,19 +150,30 @@ void Cable2D::update_cable(float delta) {
         return;
 
     for(int i = 0; i < _rendered_points.size(); ++i) {
+        int segment = i / _segments;
+        float force_blend = float(i % _segments) / float(_segments);
         if (i % _segments == 0) {
             // pinned point
             _rendered_points.set(i, _points[i / _segments]);
         } else {
+            Vector2 point_force = (_point_forces[segment] * (1.0 - force_blend)) +
+                (_point_forces[segment + 1] * force_blend);
+
             Vector2 pt = _rendered_points[i];
             Vector2 new_pt = pt;
             Vector2 vel = (pt - _old_points[i]) * delta;
             new_pt += vel;
-            new_pt.y += 20.0 * delta;
+            new_pt.y += 50.0 * delta;
+            new_pt += point_force;
             _rendered_points.set(i, new_pt);
         }
     }
     _old_points = _rendered_points;
+
+    // Damp the forces per point
+    for(int i = 0; i < _point_forces.size(); i++) {
+        _point_forces.set(i, _point_forces[i] * _force_damping);
+    }
 }
 
 void Cable2D::update_constraints() {
@@ -195,6 +233,12 @@ void Cable2D::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_points", "points"), &Cable2D::set_points);
     ClassDB::bind_method(D_METHOD("get_points"), &Cable2D::get_points);
 
+    ClassDB::bind_method(D_METHOD("set_points_forces", "forces"), &Cable2D::set_points_forces);
+    ClassDB::bind_method(D_METHOD("get_points_forces"), &Cable2D::get_points_forces);
+
+    ClassDB::bind_method(D_METHOD("set_point_force", "index", "force"), &Cable2D::set_point_force);
+    ClassDB::bind_method(D_METHOD("get_point_force", "index"), &Cable2D::get_point_force);
+
     ClassDB::bind_method(D_METHOD("set_color", "color"), &Cable2D::set_color);
     ClassDB::bind_method(D_METHOD("get_color"), &Cable2D::get_color);
 
@@ -211,6 +255,7 @@ void Cable2D::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_iterations"), &Cable2D::get_iterations);
 
     ADD_PROPERTY(PropertyInfo(Variant::POOL_VECTOR2_ARRAY, "points"), "set_points", "get_points");
+    ADD_PROPERTY(PropertyInfo(Variant::POOL_VECTOR2_ARRAY, "forces"), "set_points_forces", "get_points_forces");
     ADD_PROPERTY(PropertyInfo(Variant::REAL, "width"), "set_width", "get_width");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "segments"), "set_segments", "get_segments");
     ADD_PROPERTY(PropertyInfo(Variant::REAL, "restlength_scale"), "set_restlength_scale", "get_restlength_scale");
