@@ -1,0 +1,28 @@
+# SCsub
+Import('env')
+
+sources = [
+    "register_types.cpp",
+    "cable2d.cpp",
+    "cable2d_editor_plugin.cpp"
+]
+
+# Create a custom env for our module.
+module_env = env.Clone()
+module_env.Append(CXXFLAGS=["-O2", "-std=c++11"])
+
+if ARGUMENTS.get('cable2d_shared', 'no') == "yes":
+    module_env.Append(CXXFLAGS="-fPIC")  # Needed for shared libs.
+    # We dont want godot's dependencies to be injected into our shared lib
+    module_env['LIBS'] = []
+
+    # Define shared lib and place it next to godot in it's bin
+    shared_lib = module_env.SharedLibrary(target='#bin/cable2d', source=sources)
+
+    # Notify our main env it has our shared library as a new dependency.
+    #
+    shared_lib_shim = shared_lib[0].name.rsplit(".", 1)[0]
+    env.Append(LIBS=[shared_lib_shim])
+    env.Append(LIBPATH=['#bin'])
+else:
+    module_env.add_source_files(env.modules_sources, sources)
